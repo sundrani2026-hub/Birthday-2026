@@ -25,7 +25,7 @@ function startCamera() {
         .then(stream => {
             video.srcObject = stream;
             scanBtn.disabled = false;
-            status.innerText = "तैयार! अपनी फोटो ढूँढने के लिए स्कैन बटन दबाएं।";
+            status.innerText = "तैयार! अपनी फोटो खींचने के लिए बटन दबाएं।";
         })
         .catch(err => {
             status.innerText = "कैमरा की अनुमति नहीं मिली! कृपया परमिशन दें।";
@@ -33,15 +33,39 @@ function startCamera() {
 }
 
 scanBtn.addEventListener('click', async () => {
-    status.innerText = "फोटो खोजी जा रही हैं... कृपया 1-2 मिनट प्रतीक्षा करें।";
-    gallery.innerHTML = '';
+    // 1. Snapshot Capture Karna
+    const canvas = document.createElement('canvas');
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // 2. Camera Band Karna (Taaki user aaram se wait kar sake)
+    const stream = video.srcObject;
+    if (stream) {
+        const tracks = stream.getTracks();
+        tracks.forEach(track => track.stop());
+    }
+
+    // 3. Live video ki jagah Captured Photo dikhana
+    const capturedImg = document.createElement('img');
+    capturedImg.src = canvas.toDataURL('image/png');
+    capturedImg.style.width = '100%';
+    capturedImg.style.display = 'block';
+    video.parentNode.replaceChild(capturedImg, video);
+
+    // UI Update
+    scanBtn.disabled = true;
     scanner.style.display = 'block'; 
+    status.innerText = "📸 फोटो क्लिक हो गई! अब आप फोन नीचे रख सकते हैं। AI आपकी पुरानी फोटो खोज रहा है... (इसमें 1-2 मिनट लग सकते हैं)";
+    gallery.innerHTML = '';
     
     try {
-        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+        // Live video ki jagah ab is static canvas se face match hoga
+        const detection = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
         
         if (!detection) {
-            status.innerText = "चेहरा साफ नहीं दिखा। रोशनी में आएं और फिर से कोशिश करें!";
+            status.innerText = "चेहरा साफ नहीं दिखा। पेज रिफ्रेश करें और फिर से कोशिश करें!";
             scanner.style.display = 'none';
             return;
         }
@@ -63,6 +87,7 @@ scanBtn.addEventListener('click', async () => {
         let foundCount = 0;
 
         for (const id of photoIds) {
+            // Fast Google Drive direct image link
             const imgUrl = `https://lh3.googleusercontent.com/d/${id}`; 
             
             try {
@@ -83,10 +108,10 @@ scanBtn.addEventListener('click', async () => {
                     }
                 }
             } catch (e) {
-                console.log("Photo Skip Hui: " + id);
+                console.log("Photo load hone me waqt lag raha hai: " + id);
             }
         }
-        status.innerText = foundCount > 0 ? `बधाई हो! आपकी ${foundCount} फोटो मिल गईं।` : "आपकी कोई फोटो नहीं मिली।";
+        status.innerText = foundCount > 0 ? `बधाई हो! आपकी ${foundCount} फोटो मिल गईं। नीचे देखें 👇` : "आपकी कोई फोटो नहीं मिली।";
     } catch (error) {
         status.innerText = "सिस्टम में कुछ गड़बड़ी हुई। पेज को रिफ्रेश करें।";
     } finally {
