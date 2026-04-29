@@ -8,12 +8,12 @@
         body { font-family: Arial; text-align: center; padding: 50px; background: #222; color: #fff; }
         #progress { font-size: 20px; font-weight: bold; color: #00ff00; margin: 20px; }
         .warning { color: yellow; font-size: 14px; }
-        #logs { height: 200px; overflow-y: scroll; background: #111; padding: 10px; font-size: 13px; text-align: left; margin-top: 20px; border: 1px solid #555; color: #0f0;}
+        #logs { height: 300px; overflow-y: scroll; background: #111; padding: 10px; font-size: 13px; text-align: left; margin-top: 20px; border: 1px solid #555; color: #0f0;}
     </style>
 </head>
 <body>
-    <h2>🚀 700 Photos AI Indexer (CORS Bypass Version)</h2>
-    <p class="warning">कृपया इस टैब को बंद न करें। इसमें 10-15 मिनट लग सकते हैं।</p>
+    <h2>🚀 700 Photos AI Indexer (Crowd Fix Version)</h2>
+    <p class="warning">कृपया इस टैब को बंद न करें। भीड़ वाली फोटो स्कैन होने में थोड़ा ज़्यादा समय (20-25 मिनट) लग सकता है।</p>
     <button id="start-btn" style="padding: 15px 30px; font-size: 18px; cursor: pointer; background: #d84315; color: white; border: none; border-radius: 5px;">स्कैनिंग चालू करें</button>
     <div id="progress">तैयार...</div>
     <div id="logs">सिस्टम रेडी है...<br></div>
@@ -26,7 +26,7 @@
 
         function logMsg(msg) {
             logs.innerHTML += `<div>${msg}</div>`;
-            logs.scrollTop = logs.scrollHeight; // Auto-scroll
+            logs.scrollTop = logs.scrollHeight; 
         }
 
         async function startProcess() {
@@ -62,12 +62,16 @@
             
             for (let i = 0; i < photoIds.length; i++) {
                 const id = photoIds[i];
-                // MAGIC TRICK: Proxy Server ka use taaki Google Drive block na kare!
-                const imgUrl = `https://wsrv.nl/?url=drive.google.com/uc?id=${id}&w=400`; 
+                
+                // CROWD FIX 1: Photo ka resolution 400 se badhakar 1000 kar diya hai
+                const imgUrl = `https://wsrv.nl/?url=drive.google.com/uc?id=${id}&w=1000`; 
                 
                 try {
                     const img = await faceapi.fetchImage(imgUrl);
-                    const detections = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 320 })).withFaceLandmarks().withFaceDescriptors();
+                    
+                    // CROWD FIX 2: inputSize ko 320 se 608 kar diya (ताकि छोटे चेहरे भी दिखें)
+                    // CROWD FIX 3: scoreThreshold 0.3 कर दिया (ताकि थोड़ा ब्लर चेहरा भी पकड़ ले)
+                    const detections = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 608, scoreThreshold: 0.3 })).withFaceLandmarks().withFaceDescriptors();
                     
                     if (detections.length > 0) {
                         const faces = detections.map(d => Array.from(d.descriptor));
