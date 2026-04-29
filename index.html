@@ -1,29 +1,100 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Birthday Photo Finder</title>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
-    <script defer src="script.js"></script>
-    <style>
-        body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; margin: 0; padding: 20px; }
-        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
-        video { width: 100%; border-radius: 10px; background: #000; }
-        button { background: #25d366; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 50px; cursor: pointer; margin-top: 15px; width: 100%; }
-        button:disabled { background: #ccc; }
-        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 20px; }
-        .gallery img { width: 100%; border-radius: 8px; border: 2px solid #ddd; }
-        #status { margin: 10px 0; color: #555; font-weight: bold; }
-    </style>
-</head>
-<body>
-    <div class="container">
-        <h2>🎉 Birthday Photo Finder</h2>
-        <p id="status">Loading AI Models...</p>
-        <video id="video" autoplay muted playsinline></video>
-        <button id="scan-btn" disabled>Scan My Face</button>
-        <div id="gallery" class="gallery"></div>
-    </div>
-</body>
-</html>
+const video = document.getElementById('video');
+const scanBtn = document.getElementById('scan-btn');
+const status = document.getElementById('status');
+const gallery = document.getElementById('gallery');
+const scanner = document.getElementById('scanner');
+
+// Direct Cloud URL - Ab Models error nahi aayega!
+const MODEL_URL = 'https://cdn.jsdelivr.net/gh/cgarciagl/face-api.js@0.22.2/weights';
+
+async function init() {
+    try {
+        await Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]);
+        status.innerText = "कैमरा चालू हो रहा है...";
+        startCamera();
+    } catch (err) {
+        status.innerText = "AI लोड होने में समस्या: " + err.message;
+    }
+}
+
+function startCamera() {
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+        .then(stream => {
+            video.srcObject = stream;
+            scanBtn.disabled = false;
+            status.innerText = "तैयार! अपनी फोटो ढूँढने के लिए स्कैन बटन दबाएं।";
+        })
+        .catch(err => {
+            status.innerText = "कैमरा की अनुमति नहीं मिली! कृपया परमिशन दें।";
+        });
+}
+
+scanBtn.addEventListener('click', async () => {
+    status.innerText = "फोटो खोजी जा रही हैं... कृपया 1-2 मिनट प्रतीक्षा करें।";
+    gallery.innerHTML = '';
+    scanner.style.display = 'block'; // Scanner animation ON
+    
+    try {
+        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+        
+        if (!detection) {
+            status.innerText = "चेहरा साफ नहीं दिखा। रोशनी में आएं और फिर से कोशिश करें!";
+            scanner.style.display = 'none';
+            return;
+        }
+
+        const userDescriptor = detection.descriptor;
+        
+        // Tumhari text file ko padhega
+        const response = await fetch('photos%20link.txt');
+        const textData = await response.text();
+        
+        const regex = /\/d\/([a-zA-Z0-9_-]+)\/view/g;
+        let match;
+        const photoIds = [];
+        while ((match = regex.exec(textData)) !== null) {
+            if (!photoIds.includes(match[1])) {
+                photoIds.push(match[1]);
+            }
+        }
+
+        let foundCount = 0;
+
+        for (const id of photoIds) {
+            // Updated secure link setup
+            const imgUrl = `https://lh3.googleusercontent.com/d/${id}`; 
+            
+            try {
+                const img = await faceapi.fetchImage(imgUrl);
+                const photoMatch = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+                
+                if (photoMatch) {
+                    const distance = faceapi.euclideanDistance(userDescriptor, photoMatch.descriptor);
+                    if (distance < 0.55) { 
+                        const imgContainer = document.createElement('div');
+                        imgContainer.className = 'photo-card';
+                        imgContainer.innerHTML = `
+                            <img src="${imgUrl}" alt="Birthday Photo">
+                            <a href="${imgUrl}" class="download-btn" download target="_blank">डाउनलोड करें</a>
+                        `;
+                        gallery.appendChild(imgContainer);
+                        foundCount++;
+                    }
+                }
+            } catch (e) {
+                console.log("Photo Skip Hui: " + id);
+            }
+        }
+        status.innerText = foundCount > 0 ? `बधाई हो! आपकी ${foundCount} फोटो मिल गईं।` : "आपकी कोई फोटो नहीं मिली।";
+    } catch (error) {
+        status.innerText = "सिस्टम में कुछ गड़बड़ी हुई। पेज को रिफ्रेश करें।";
+    } finally {
+        scanner.style.display = 'none'; // Scanner animation OFF
+    }
+});
+
+init();
