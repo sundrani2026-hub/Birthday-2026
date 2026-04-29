@@ -1,1 +1,29 @@
-
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Birthday Photo Finder</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script defer src="script.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; text-align: center; background: #f4f4f4; margin: 0; padding: 20px; }
+        .container { max-width: 600px; margin: auto; background: white; padding: 20px; border-radius: 15px; box-shadow: 0 4px 8px rgba(0,0,0,0.1); }
+        video { width: 100%; border-radius: 10px; background: #000; }
+        button { background: #25d366; color: white; border: none; padding: 15px 30px; font-size: 18px; border-radius: 50px; cursor: pointer; margin-top: 15px; width: 100%; }
+        button:disabled { background: #ccc; }
+        .gallery { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; margin-top: 20px; }
+        .gallery img { width: 100%; border-radius: 8px; border: 2px solid #ddd; }
+        #status { margin: 10px 0; color: #555; font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>🎉 Birthday Photo Finder</h2>
+        <p id="status">Loading AI Models...</p>
+        <video id="video" autoplay muted playsinline></video>
+        <button id="scan-btn" disabled>Scan My Face</button>
+        <div id="gallery" class="gallery"></div>
+    </div>
+</body>
+</html>
