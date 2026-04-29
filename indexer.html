@@ -6,30 +6,44 @@
     <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         body { font-family: Arial; text-align: center; padding: 50px; background: #222; color: #fff; }
-        #progress { font-size: 24px; font-weight: bold; color: #00ff00; margin: 20px; }
+        #progress { font-size: 20px; font-weight: bold; color: #00ff00; margin: 20px; }
         .warning { color: yellow; font-size: 14px; }
+        #logs { height: 200px; overflow-y: scroll; background: #111; padding: 10px; font-size: 13px; text-align: left; margin-top: 20px; border: 1px solid #555; color: #0f0;}
     </style>
 </head>
 <body>
-    <h2>🚀 700 Photos AI Indexer (सिर्फ तुम्हारे लिए)</h2>
+    <h2>🚀 700 Photos AI Indexer (CORS Bypass Version)</h2>
     <p class="warning">कृपया इस टैब को बंद न करें। इसमें 10-15 मिनट लग सकते हैं।</p>
-    <button id="start-btn" style="padding: 15px 30px; font-size: 18px; cursor: pointer;">स्कैनिंग चालू करें</button>
+    <button id="start-btn" style="padding: 15px 30px; font-size: 18px; cursor: pointer; background: #d84315; color: white; border: none; border-radius: 5px;">स्कैनिंग चालू करें</button>
     <div id="progress">तैयार...</div>
+    <div id="logs">सिस्टम रेडी है...<br></div>
 
     <script>
         const startBtn = document.getElementById('start-btn');
         const progress = document.getElementById('progress');
+        const logs = document.getElementById('logs');
         const MODEL_URL = 'https://cdn.jsdelivr.net/gh/cgarciagl/face-api.js@0.22.2/weights';
+
+        function logMsg(msg) {
+            logs.innerHTML += `<div>${msg}</div>`;
+            logs.scrollTop = logs.scrollHeight; // Auto-scroll
+        }
 
         async function startProcess() {
             startBtn.disabled = true;
             progress.innerText = "AI मॉडल्स लोड हो रहे हैं...";
+            logMsg("Models loading...");
             
-            await Promise.all([
-                faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-                faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-                faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-            ]);
+            try {
+                await Promise.all([
+                    faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+                    faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+                ]);
+            } catch (err) {
+                logMsg("❌ Models load होने में एरर: " + err.message);
+                return;
+            }
 
             progress.innerText = "लिंक्स पढ़े जा रहे हैं...";
             const response = await fetch('photos%20link.txt');
@@ -46,30 +60,36 @@
             
             const finalData = [];
             
-            // Ek-ek karke scan karenge taaki Drive block na kare
             for (let i = 0; i < photoIds.length; i++) {
                 const id = photoIds[i];
-                const imgUrl = `https://drive.google.com/thumbnail?id=${id}&sz=w500`; // Speed ke liye choti photo
+                // MAGIC TRICK: Proxy Server ka use taaki Google Drive block na kare!
+                const imgUrl = `https://wsrv.nl/?url=drive.google.com/uc?id=${id}&w=400`; 
                 
                 try {
                     const img = await faceapi.fetchImage(imgUrl);
                     const detections = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 320 })).withFaceLandmarks().withFaceDescriptors();
                     
                     if (detections.length > 0) {
-                        // AI Data ko JSON format me convert karna
                         const faces = detections.map(d => Array.from(d.descriptor));
                         finalData.push({ id: id, faces: faces });
+                        logMsg(`✅ सफलता: ID ${id} में ${faces.length} चेहरे मिले!`);
+                    } else {
+                        logMsg(`⚠️ कोई चेहरा नहीं: ID ${id} में इंसान नहीं दिखा।`);
                     }
                 } catch (e) {
-                    console.log(`ID ${id} स्किप हो गई (शायद वीडियो है)`);
+                    logMsg(`❌ स्किप: ID ${id} (शायद वीडियो है या लिंक करप्ट है)।`);
                 }
                 
-                progress.innerText = `स्कैन हो रहा है: ${i + 1} / ${photoIds.length} (${finalData.length} फोटो में चेहरे मिले)`;
+                progress.innerText = `स्कैन हो रहा है: ${i + 1} / ${photoIds.length} | सफल फोटो: ${finalData.length}`;
             }
 
             progress.innerText = "स्कैन पूरा हुआ! फ़ाइल डाउनलोड हो रही है...";
             
-            // data.json file download karwana
+            if (finalData.length === 0) {
+                alert("एक भी फोटो स्कैन नहीं हुई! कुछ गड़बड़ है।");
+                return;
+            }
+
             const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(finalData));
             const downloadAnchorNode = document.createElement('a');
             downloadAnchorNode.setAttribute("href", dataStr);
