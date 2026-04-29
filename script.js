@@ -29,7 +29,7 @@ function startCamera() {
 }
 
 scanBtn.addEventListener('click', async () => {
-    status.innerText = "Matching faces... Please wait.";
+    status.innerText = "Matching faces... Please wait. (Photos zyada hain, thoda time lag sakta hai)";
     gallery.innerHTML = '';
     
     const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
@@ -40,13 +40,25 @@ scanBtn.addEventListener('click', async () => {
     }
 
     const userDescriptor = detection.descriptor;
-    const response = await fetch('photos.json');
-    const photoIds = await response.json();
+    
+    // JADUU: Seedha aapki text file se IDs nikalna
+    const response = await fetch('photos%20link.txt');
+    const textData = await response.text();
+    
+    // Regex ka use karke sirf ID nikalna
+    const regex = /\/d\/([a-zA-Z0-9_-]+)\/view/g;
+    let match;
+    const photoIds = [];
+    while ((match = regex.exec(textData)) !== null) {
+        if (!photoIds.includes(match[1])) {
+            photoIds.push(match[1]); // Duplicate IDs hatane ke liye
+        }
+    }
 
     let foundCount = 0;
 
     for (const id of photoIds) {
-        // Direct Download/View Link for Google Drive
+        // Google Drive Image Direct & Fast Link
         const imgUrl = `https://lh3.googleusercontent.com/d/${id}`;
         
         try {
@@ -57,16 +69,20 @@ scanBtn.addEventListener('click', async () => {
                 const distance = faceapi.euclideanDistance(userDescriptor, photoMatch.descriptor);
                 if (distance < 0.55) { // Threshold for matching
                     const imgContainer = document.createElement('div');
-                    imgContainer.innerHTML = `<img src="${imgUrl}"><br><a href="${imgUrl}" download target="_blank" style="font-size:12px; text-decoration:none; color:blue;">Download</a>`;
+                    imgContainer.innerHTML = `
+                        <img src="${imgUrl}" style="width:100%; border-radius:8px; border:2px solid #ddd;">
+                        <br>
+                        <a href="${imgUrl}" download target="_blank" style="font-size:14px; text-decoration:none; color:#25d366; font-weight:bold;">Download Photo</a>
+                    `;
                     gallery.appendChild(imgContainer);
                     foundCount++;
                 }
             }
         } catch (e) {
-            console.log("Skipping image: " + id);
+            console.log("Loading delay for ID: " + id);
         }
     }
-    status.innerText = foundCount > 0 ? `Found ${foundCount} photos!` : "No matching photos found.";
+    status.innerText = foundCount > 0 ? `Mil Gayi! ${foundCount} photos aapki hain.` : "Aapki koi photo nahi mili.";
 });
 
 init();
