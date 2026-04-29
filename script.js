@@ -25,7 +25,7 @@ function startCamera() {
         .then(stream => {
             video.srcObject = stream;
             scanBtn.disabled = false;
-            status.innerText = "तैयार! अपनी फोटो खींचने के लिए बटन दबाएं।";
+            status.innerText = "तैयार! अपनी फोटो खींचने के लिए स्कैन बटन दबाएं।";
         })
         .catch(err => {
             status.innerText = "कैमरा की अनुमति नहीं मिली! कृपया परमिशन दें।";
@@ -40,28 +40,26 @@ scanBtn.addEventListener('click', async () => {
     const ctx = canvas.getContext('2d');
     ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
 
-    // 2. Camera Band Karna (Taaki user aaram se wait kar sake)
+    // 2. Camera Band Karna
     const stream = video.srcObject;
     if (stream) {
         const tracks = stream.getTracks();
         tracks.forEach(track => track.stop());
     }
 
-    // 3. Live video ki jagah Captured Photo dikhana
+    // 3. Captured Photo dikhana
     const capturedImg = document.createElement('img');
     capturedImg.src = canvas.toDataURL('image/png');
     capturedImg.style.width = '100%';
     capturedImg.style.display = 'block';
     video.parentNode.replaceChild(capturedImg, video);
 
-    // UI Update
     scanBtn.disabled = true;
     scanner.style.display = 'block'; 
-    status.innerText = "📸 फोटो क्लिक हो गई! अब आप फोन नीचे रख सकते हैं। AI आपकी पुरानी फोटो खोज रहा है... (इसमें 1-2 मिनट लग सकते हैं)";
+    status.innerText = "📸 फोटो क्लिक हो गई! AI भारी इमेजेज को स्कैन कर रहा है... इसमें थोड़ा समय लग सकता है।";
     gallery.innerHTML = '';
     
     try {
-        // Live video ki jagah ab is static canvas se face match hoga
         const detection = await faceapi.detectSingleFace(canvas, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
         
         if (!detection) {
@@ -85,33 +83,43 @@ scanBtn.addEventListener('click', async () => {
         }
 
         let foundCount = 0;
+        // MATCHING RULES: 0.45 (Aur zyada strict kar diya hai taaki galat photo na aaye)
+        const MAX_DISTANCE = 0.45; 
 
         for (const id of photoIds) {
-            // Fast Google Drive direct image link
+            // Google Drive direct link
             const imgUrl = `https://lh3.googleusercontent.com/d/${id}`; 
             
             try {
                 const img = await faceapi.fetchImage(imgUrl);
-                const photoMatch = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
                 
-                if (photoMatch) {
-                    const distance = faceapi.euclideanDistance(userDescriptor, photoMatch.descriptor);
-                    if (distance < 0.55) { 
-                        const imgContainer = document.createElement('div');
-                        imgContainer.className = 'photo-card';
-                        imgContainer.innerHTML = `
-                            <img src="${imgUrl}" alt="Birthday Photo">
-                            <a href="${imgUrl}" class="download-btn" download target="_blank">डाउनलोड करें</a>
-                        `;
-                        gallery.appendChild(imgContainer);
-                        foundCount++;
+                // GROUP PHOTO FIX: Photo mein sabke chehre scan karega
+                const photoMatches = await faceapi.detectAllFaces(img, new faceapi.TinyFaceDetectorOptions({ inputSize: 320 })).withFaceLandmarks().withFaceDescriptors();
+                
+                let isMatchFound = false;
+                for (const face of photoMatches) {
+                    const distance = faceapi.euclideanDistance(userDescriptor, face.descriptor);
+                    if (distance < MAX_DISTANCE) { 
+                        isMatchFound = true;
+                        break; // Ek baar tumhara face mil gaya, to photo dikha do
                     }
                 }
+
+                if (isMatchFound) {
+                    const imgContainer = document.createElement('div');
+                    imgContainer.className = 'photo-card';
+                    imgContainer.innerHTML = `
+                        <img src="${imgUrl}" alt="Birthday Photo">
+                        <a href="${imgUrl}" class="download-btn" download target="_blank">डाउनलोड करें</a>
+                    `;
+                    gallery.appendChild(imgContainer);
+                    foundCount++;
+                }
             } catch (e) {
-                console.log("Photo load hone me waqt lag raha hai: " + id);
+                console.log("Photo Skip Hui: " + id);
             }
         }
-        status.innerText = foundCount > 0 ? `बधाई हो! आपकी ${foundCount} फोटो मिल गईं। नीचे देखें 👇` : "आपकी कोई फोटो नहीं मिली।";
+        status.innerText = foundCount > 0 ? `बधाई हो! आपकी ${foundCount} फोटो मिल गईं।` : "इस एल्बम में आपकी कोई फोटो नहीं मिली।";
     } catch (error) {
         status.innerText = "सिस्टम में कुछ गड़बड़ी हुई। पेज को रिफ्रेश करें।";
     } finally {
