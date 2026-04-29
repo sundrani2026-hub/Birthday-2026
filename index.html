@@ -1,100 +1,97 @@
-const video = document.getElementById('video');
-const scanBtn = document.getElementById('scan-btn');
-const status = document.getElementById('status');
-const gallery = document.getElementById('gallery');
-const scanner = document.getElementById('scanner');
-
-// Direct Cloud URL - Ab Models error nahi aayega!
-const MODEL_URL = 'https://cdn.jsdelivr.net/gh/cgarciagl/face-api.js@0.22.2/weights';
-
-async function init() {
-    try {
-        await Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]);
-        status.innerText = "कैमरा चालू हो रहा है...";
-        startCamera();
-    } catch (err) {
-        status.innerText = "AI लोड होने में समस्या: " + err.message;
-    }
-}
-
-function startCamera() {
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-        .then(stream => {
-            video.srcObject = stream;
-            scanBtn.disabled = false;
-            status.innerText = "तैयार! अपनी फोटो ढूँढने के लिए स्कैन बटन दबाएं।";
-        })
-        .catch(err => {
-            status.innerText = "कैमरा की अनुमति नहीं मिली! कृपया परमिशन दें।";
-        });
-}
-
-scanBtn.addEventListener('click', async () => {
-    status.innerText = "फोटो खोजी जा रही हैं... कृपया 1-2 मिनट प्रतीक्षा करें।";
-    gallery.innerHTML = '';
-    scanner.style.display = 'block'; // Scanner animation ON
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Shrichand Sundrani - Janmdin Photos</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script defer src="script.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;600&family=Yatra+One&display=swap');
+        body {
+            margin: 0; padding: 0;
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #fff3e0 0%, #ffe0b2 100%);
+            color: #333;
+            text-align: center;
+        }
+        .header-banner {
+            background: #d84315;
+            color: white;
+            padding: 30px 15px;
+            border-bottom: 5px solid #ffab00;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+        .header-banner h1 {
+            font-family: 'Yatra One', cursive;
+            margin: 0; font-size: 42px; text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        .header-banner h3 {
+            margin: 5px 0 15px 0; font-size: 20px; font-weight: 400; opacity: 0.95;
+        }
+        .header-banner h2 {
+            margin: 0; font-size: 24px; font-weight: 600; background: #ffab00; color: #fff;
+            display: inline-block; padding: 8px 25px; border-radius: 50px;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+        .main-container {
+            max-width: 600px; margin: -20px auto 30px auto; background: white;
+            padding: 25px; border-radius: 20px; box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            position: relative; z-index: 10;
+        }
+        #video-container {
+            position: relative; overflow: hidden; border-radius: 15px;
+            border: 4px solid #ffab00; background: #000; margin-bottom: 20px;
+        }
+        video { width: 100%; display: block; }
+        .scanner-line {
+            position: absolute; top: 0; left: 0; width: 100%; height: 4px;
+            background: #39ff14; box-shadow: 0 0 15px #39ff14;
+            animation: scan 2s infinite linear; display: none;
+        }
+        @keyframes scan { 0% { top: 0; } 50% { top: 100%; } 100% { top: 0; } }
+        button {
+            background: #d84315; color: white; border: none; padding: 15px 30px;
+            font-size: 18px; font-weight: bold; border-radius: 50px; cursor: pointer;
+            width: 100%; transition: 0.3s; box-shadow: 0 4px 10px rgba(216, 67, 21, 0.4);
+        }
+        button:hover:not(:disabled) { background: #bf360c; transform: translateY(-2px); }
+        button:disabled { background: #ccc; cursor: not-allowed; box-shadow: none; }
+        #status { margin: 15px 0; font-weight: 600; color: #d84315; font-size: 16px; }
+        .gallery {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
+            gap: 15px; margin-top: 20px;
+        }
+        .photo-card {
+            background: #fff; border-radius: 10px; overflow: hidden;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1); border: 1px solid #ddd;
+        }
+        .photo-card img { width: 100%; height: 140px; object-fit: cover; display: block; }
+        .download-btn {
+            display: block; background: #25d366; color: white; text-decoration: none;
+            padding: 10px; font-size: 14px; font-weight: bold;
+        }
+        .download-btn:hover { background: #1ebe5d; }
+    </style>
+</head>
+<body>
+    <div class="header-banner">
+        <h1>श्रीचंद सुंदरानी</h1>
+        <h3>पूर्व विधायक रायपुर नगर उत्तर</h3>
+        <h2>जन्मदिन फोटो</h2>
+    </div>
     
-    try {
-        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+    <div class="main-container">
+        <p id="status">AI सिस्टम चालू हो रहा है...</p>
         
-        if (!detection) {
-            status.innerText = "चेहरा साफ नहीं दिखा। रोशनी में आएं और फिर से कोशिश करें!";
-            scanner.style.display = 'none';
-            return;
-        }
-
-        const userDescriptor = detection.descriptor;
+        <div id="video-container">
+            <video id="video" autoplay muted playsinline></video>
+            <div class="scanner-line" id="scanner"></div>
+        </div>
         
-        // Tumhari text file ko padhega
-        const response = await fetch('photos%20link.txt');
-        const textData = await response.text();
+        <button id="scan-btn" disabled>अपना चेहरा स्कैन करें</button>
         
-        const regex = /\/d\/([a-zA-Z0-9_-]+)\/view/g;
-        let match;
-        const photoIds = [];
-        while ((match = regex.exec(textData)) !== null) {
-            if (!photoIds.includes(match[1])) {
-                photoIds.push(match[1]);
-            }
-        }
-
-        let foundCount = 0;
-
-        for (const id of photoIds) {
-            // Updated secure link setup
-            const imgUrl = `https://lh3.googleusercontent.com/d/${id}`; 
-            
-            try {
-                const img = await faceapi.fetchImage(imgUrl);
-                const photoMatch = await faceapi.detectSingleFace(img, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-                
-                if (photoMatch) {
-                    const distance = faceapi.euclideanDistance(userDescriptor, photoMatch.descriptor);
-                    if (distance < 0.55) { 
-                        const imgContainer = document.createElement('div');
-                        imgContainer.className = 'photo-card';
-                        imgContainer.innerHTML = `
-                            <img src="${imgUrl}" alt="Birthday Photo">
-                            <a href="${imgUrl}" class="download-btn" download target="_blank">डाउनलोड करें</a>
-                        `;
-                        gallery.appendChild(imgContainer);
-                        foundCount++;
-                    }
-                }
-            } catch (e) {
-                console.log("Photo Skip Hui: " + id);
-            }
-        }
-        status.innerText = foundCount > 0 ? `बधाई हो! आपकी ${foundCount} फोटो मिल गईं।` : "आपकी कोई फोटो नहीं मिली।";
-    } catch (error) {
-        status.innerText = "सिस्टम में कुछ गड़बड़ी हुई। पेज को रिफ्रेश करें।";
-    } finally {
-        scanner.style.display = 'none'; // Scanner animation OFF
-    }
-});
-
-init();
+        <div id="gallery" class="gallery"></div>
+    </div>
+</body>
+</html>
